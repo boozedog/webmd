@@ -17,6 +17,8 @@ var (
 	flagArticle     bool
 	flagMobile      bool
 	flagImages      bool
+	flagKeepNav     bool
+	flagFrontmatter bool
 	flagBrowserPath string
 	flagNoDownload  bool
 	flagTimeout     time.Duration
@@ -45,6 +47,8 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&flagArticle, "article", false, "Extract main article content via readability")
 	cmd.Flags().BoolVar(&flagMobile, "mobile", false, "Emulate a mobile device (iPhone viewport and user-agent)")
 	cmd.Flags().BoolVar(&flagImages, "images", false, "Include images in markdown output")
+	cmd.Flags().BoolVar(&flagKeepNav, "keep-nav", false, "Keep nav, header, footer, and aside elements")
+	cmd.Flags().BoolVar(&flagFrontmatter, "frontmatter", false, "Prepend YAML frontmatter with source URL, fetch method, and timing")
 	cmd.Flags().DurationVar(&flagTimeout, "timeout", 15*time.Second, "Page load timeout")
 	cmd.Flags().DurationVar(&flagWait, "wait", 0, "Extra wait after page load for JS-heavy sites")
 	cmd.Flags().StringVar(&flagUserAgent, "user-agent", "", "Custom User-Agent string")
@@ -57,9 +61,29 @@ func newRootCmd() *cobra.Command {
 
 func runRoot(cmd *cobra.Command, args []string) error {
 	targetURL := args[0]
+	start := time.Now()
+	var timing []convert.TimingStep
 
 	// Try markdown content negotiation first — skip the browser entirely if the server supports it.
+	fetchStart := time.Now()
 	if md := fetch.Markdown(targetURL, flagTimeout); md != "" {
+		timing = append(timing, convert.TimingStep{Name: "fetch", Duration: time.Since(fetchStart)})
+
+		stepStart := time.Now()
+		md, err := convert.FormatMarkdown(md)
+		if err != nil {
+			return err
+		}
+		timing = append(timing, convert.TimingStep{Name: "format", Duration: time.Since(stepStart)})
+
+		if flagFrontmatter {
+			timing = append(timing, convert.TimingStep{Name: "total", Duration: time.Since(start)})
+			md = convert.Frontmatter(convert.Metadata{
+				SourceURL:   targetURL,
+				FetchMethod: "markdown",
+				Timing:      timing,
+			}) + md
+		}
 		return writeOutput(cmd, md)
 	}
 
@@ -82,13 +106,28 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	timing = append(timing, convert.TimingStep{Name: "fetch", Duration: time.Since(fetchStart)})
 
 	html := result.HTML
+
+	stepStart := time.Now()
+	html = convert.StripHidden(html)
+	timing = append(timing, convert.TimingStep{Name: "strip_hidden", Duration: time.Since(stepStart)})
+
+	if !flagKeepNav {
+		stepStart = time.Now()
+		html = convert.StripNav(html)
+		timing = append(timing, convert.TimingStep{Name: "strip_nav", Duration: time.Since(stepStart)})
+	}
+
 	if !flagImages {
+		stepStart = time.Now()
 		html = convert.StripImages(html)
+		timing = append(timing, convert.TimingStep{Name: "strip_images", Duration: time.Since(stepStart)})
 	}
 
 	var md string
+	stepStart = time.Now()
 	if html == "" {
 		md = ""
 	} else if flagArticle {
@@ -99,11 +138,31 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	timing = append(timing, convert.TimingStep{Name: "convert", Duration: time.Since(stepStart)})
 
+	stepStart = time.Now()
 	md = convert.StripJunkLinks(md)
+	timing = append(timing, convert.TimingStep{Name: "strip_junk_links", Duration: time.Since(stepStart)})
+
+	stepStart = time.Now()
+	md, err = convert.FormatMarkdown(md)
+	if err != nil {
+		return err
+	}
+	timing = append(timing, convert.TimingStep{Name: "format", Duration: time.Since(stepStart)})
 
 	if result.TimedOut {
 		md = fmt.Sprintf("[webmd: page timed out after %s; content may be incomplete]\n\n%s", flagTimeout, md)
+	}
+
+	if flagFrontmatter {
+		timing = append(timing, convert.TimingStep{Name: "total", Duration: time.Since(start)})
+		md = convert.Frontmatter(convert.Metadata{
+			SourceURL:   targetURL,
+			FetchMethod: "browser",
+			TimedOut:    result.TimedOut,
+			Timing:      timing,
+		}) + md
 	}
 
 	return writeOutput(cmd, md)
