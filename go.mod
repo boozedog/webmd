@@ -7,6 +7,7 @@ require (
 	github.com/go-rod/rod v0.116.2
 	github.com/mackee/go-readability v0.3.1
 	github.com/spf13/cobra v1.10.2
+	github.com/yuin/goldmark v1.7.16
 )
 
 require (

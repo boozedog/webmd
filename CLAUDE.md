@@ -25,13 +25,13 @@ make clean           # rm bin/
 ## Quick Test
 
 ```bash
-bin/webmd https://example.com              # readability mode
-bin/webmd --full https://example.com       # full page mode
+bin/webmd https://example.com              # full page mode (default)
+bin/webmd --article https://example.com    # readability mode
 bin/webmd --no-download https://example.com # system Chrome only
 ```
 
 ## Module
 
 - Path: `github.com/boozedog/webmd`
-- Go 1.24+
+- Go 1.25+
 - Key deps: go-rod/rod, mackee/go-readability, JohannesKaufmann/html-to-markdown/v2, spf13/cobra
