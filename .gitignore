@@ -1,0 +1,4 @@
+.sidecar/
+.todos/
+bin/
+*.exe
