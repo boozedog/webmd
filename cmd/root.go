@@ -40,7 +40,7 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&flagFull, "full", false, "Convert full page instead of readability extraction")
 	cmd.Flags().StringVar(&flagBrowserPath, "browser-path", "", "Path to Chrome/Chromium binary (overrides auto-detect)")
 	cmd.Flags().BoolVar(&flagNoDownload, "no-download", false, "Disable auto-download of Chromium; fail if no system Chrome found")
-	cmd.Flags().DurationVar(&flagTimeout, "timeout", 30*time.Second, "Page load timeout")
+	cmd.Flags().DurationVar(&flagTimeout, "timeout", 5*time.Second, "Page load timeout")
 	cmd.Flags().DurationVar(&flagWait, "wait", 0, "Extra wait after page load for JS-heavy sites")
 	cmd.Flags().StringVar(&flagUserAgent, "user-agent", "", "Custom User-Agent string")
 	cmd.Flags().StringVarP(&flagOutput, "output", "o", "", "Write to file instead of stdout")
@@ -60,7 +60,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 	defer cleanup()
 
-	html, err := fetch.Page(controlURL, fetch.Options{
+	result, err := fetch.Page(controlURL, fetch.Options{
 		URL:       targetURL,
 		Timeout:   flagTimeout,
 		Wait:      flagWait,
@@ -71,13 +71,19 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	var md string
-	if flagFull {
-		md, err = convert.Full(html)
+	if result.HTML == "" {
+		md = ""
+	} else if flagFull {
+		md, err = convert.Full(result.HTML)
 	} else {
-		md, err = convert.Readability(html)
+		md, err = convert.Readability(result.HTML)
 	}
 	if err != nil {
 		return err
+	}
+
+	if result.TimedOut {
+		md = fmt.Sprintf("[webmd: page timed out after %s; content may be incomplete]\n\n%s", flagTimeout, md)
 	}
 
 	if flagOutput != "" {

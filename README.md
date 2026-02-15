@@ -13,6 +13,12 @@ Fetches URLs with a real browser (renders JavaScript), then extracts clean markd
 go install github.com/boozedog/webmd@latest
 ```
 
+From a local clone:
+
+```bash
+go install .
+```
+
 Or with Docker:
 
 ```bash
