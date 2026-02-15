@@ -20,6 +20,11 @@ func Readability(html string) (string, error) {
 		return Full(html)
 	}
 
+	body := strings.TrimSpace(readability.ToMarkdown(article.Root))
+	if body == "" {
+		return Full(html)
+	}
+
 	var b strings.Builder
 	if article.Title != "" {
 		fmt.Fprintf(&b, "# %s\n\n", article.Title)
@@ -28,7 +33,8 @@ func Readability(html string) (string, error) {
 		fmt.Fprintf(&b, "*%s*\n\n", article.Byline)
 	}
 
-	b.WriteString(readability.ToMarkdown(article.Root))
+	b.WriteString(body)
+	b.WriteByte('\n')
 
 	return b.String(), nil
 }

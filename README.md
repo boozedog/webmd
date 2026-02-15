@@ -54,7 +54,7 @@ webmd --browser-path /usr/bin/chromium https://example.com
 | `--full` | `false` | Convert full page instead of readability extraction |
 | `--browser-path` | | Path to Chrome/Chromium binary |
 | `--no-download` | `false` | Disable auto-download of Chromium |
-| `--timeout` | `30s` | Page load timeout |
+| `--timeout` | `5s` | Page load timeout |
 | `--wait` | `0s` | Extra wait after page load for JS-heavy sites |
 | `--user-agent` | | Custom User-Agent string |
 | `-o, --output` | | Write to file instead of stdout |
